@@ -1,6 +1,15 @@
 #!/usr/bin/env lua
 
-local parser = require "lua-parser.parser"
+local metalua = false
+
+if arg[1] == "metalua" then metalua = true end
+
+local parser
+if metalua then
+  parser = require "metalua.compiler".new()
+else
+  parser = require "lua-parser.parser"
+end
 local pp = require "lua-parser.pp"
 
 -- expected result, result, subject
@@ -9,10 +18,18 @@ local e, r, s
 local filename = "test.lua"
 
 local function parse (s)
-  local t,m = parser.parse(s,filename)
+  local t,m,ast
+  if metalua then
+    t = parser:src_to_ast(s)
+  else
+    t,m,ast = parser.parse(s,filename)
+  end
   local r
   if not t then
     r = m
+		--print("Syntax error", ast)
+		--print(ast.tag)
+		print(pp.tostring(ast))
   else
     r = pp.tostring(t)
   end
@@ -54,7 +71,7 @@ s = [=[
 _nil,_false,_true,_dots = nil,false,true,...
 ]=]
 e = [=[
-{ `Set{ { `Id "_nil", `Id "_false", `Id "_true", `Id "_dots" }, { `Nil, `Boolean "false", `Boolean "true", `Dots } } }
+{ `Set{ { `Id "_nil", `Id "_false", `Id "_true", `Id "_dots" }, { `Nil, `False, `True, `Dots } } }
 ]=]
 
 r = parse(s)
@@ -338,6 +355,8 @@ assert(r == e)
 
 -- syntax error
 
+if not metalua then
+
 -- floating points
 
 s = [=[
@@ -463,6 +482,8 @@ test.lua:4:1: syntax error, unclosed long string
 
 r = parse(s)
 assert(r == e)
+
+end
 
 print("> testing parser...")
 
@@ -652,7 +673,7 @@ repeat
 until 1
 ]=]
 e = [=[
-{ `Repeat{ { `If{ `Op{ "gt", `Number "2", `Number "1" }, { `Break } } }, `Number "1" } }
+{ `Repeat{ { `If{ `Op{ "lt", `Number "1", `Number "2" }, { `Break } } }, `Number "1" } }
 ]=]
 
 r = parse(s)
@@ -703,12 +724,16 @@ assert(r == e)
 
 -- empty files
 
+if not metalua then
+
 s = [=[
 ;
 ]=]
 e = [=[
 {  }
 ]=]
+
+end
 
 r = parse(s)
 assert(r == e)
@@ -801,6 +826,8 @@ assert(r == e)
 
 -- goto
 
+if not metalua then
+
 s = [=[
 goto label
 :: label :: return
@@ -889,6 +916,8 @@ e = [=[
 r = parse(s)
 assert(r == e)
 
+end
+
 -- if-else
 
 s = [=[
@@ -943,6 +972,8 @@ e = [=[
 r = parse(s)
 assert(r == e)
 
+if not metalua then
+
 s = [=[
 if a then return a
 elseif b then return
@@ -955,6 +986,8 @@ e = [=[
 
 r = parse(s)
 assert(r == e)
+
+end
 
 s = [=[
 if a then
@@ -970,6 +1003,8 @@ r = parse(s)
 assert(r == e)
 
 -- labels
+
+if not metalua then
 
 s = [=[
 ::label::
@@ -994,6 +1029,8 @@ e = [=[
 
 r = parse(s)
 assert(r == e)
+
+end
 
 -- locals
 
@@ -1073,7 +1110,7 @@ s = [=[
 relational = 1 < 2 >= 3 == 4 ~= 5 < 6 <= 7
 ]=]
 e = [=[
-{ `Set{ { `Id "relational" }, { `Op{ "le", `Op{ "lt", `Op{ "ne", `Op{ "eq", `Op{ "ge", `Op{ "lt", `Number "1", `Number "2" }, `Number "3" }, `Number "4" }, `Number "5" }, `Number "6" }, `Number "7" } } } }
+{ `Set{ { `Id "relational" }, { `Op{ "le", `Op{ "lt", `Op{ "not", `Op{ "eq", `Op{ "eq", `Op{ "le", `Number "3", `Op{ "lt", `Number "1", `Number "2" } }, `Number "4" }, `Number "5" } }, `Number "6" }, `Number "7" } } } }
 ]=]
 
 r = parse(s)
@@ -1323,6 +1360,8 @@ assert(r == e)
 
 -- syntax error
 
+if not metalua then
+
 -- anonymous functions
 
 s = [=[
@@ -1410,6 +1449,8 @@ r = parse(s)
 assert(r == e)
 
 -- break
+-- TODO AST: these errors are caught after parsing, in validator.lua
+-- Add code to parser.parse to deal with this
 
 s = [=[
 break
@@ -1545,6 +1586,8 @@ r = parse(s)
 assert(r == e)
 
 -- goto
+-- TODO AST: these errors are caught after parsing, in validator.lua
+-- Add code to parser.parse to deal with this
 
 s = [=[
 :: label :: return
@@ -1611,6 +1654,7 @@ test.lua:2:1: syntax error, expected 'end' to close the if statement
 r = parse(s)
 assert(r == e)
 
+-- Recovery: two errors instead of one
 s = [=[
 if a then
   return a
@@ -1622,6 +1666,7 @@ end
 ]=]
 e = [=[
 test.lua:7:1: syntax error, expected a condition after 'elseif'
+test.lua:7:1: syntax error, expected 'then' after the condition
 ]=]
 
 r = parse(s)
@@ -1650,6 +1695,8 @@ test.lua:2:4: syntax error, expected a label name after '::'
 r = parse(s)
 assert(r == e)
 
+-- TODO AST: these errors are caught after parsing, in validator.lua
+-- Add code to parser.parse to deal with this
 s = [=[
 ::label::
 ::other_label::
@@ -1716,6 +1763,7 @@ assert(r == e)
 
 -- repeat
 
+-- Recovery: two errors instead of one
 s = [=[
 repeat
   a,b,c = 1+1,2+2,3+3
@@ -1723,6 +1771,7 @@ repeat
 ]=]
 e = [=[
 test.lua:4:1: syntax error, expected 'until' at the end of the repeat loop
+test.lua:4:1: syntax error, expected a condition after 'until'
 ]=]
 
 r = parse(s)
@@ -1747,17 +1796,21 @@ assert(r == e)
 
 -- tables
 
+-- Recovery: two errors instead of one
 s = [=[
 t = { , }
 ]=]
 e = [=[
 test.lua:1:7: syntax error, expected '}' to close the table constructor
+test.lua:1:9: syntax error, expected an expression after ','
 ]=]
 
 r = parse(s)
 assert(r == e)
 
 -- vararg
+-- TODO AST: these errors are caught after parsing, in validator.lua
+-- Add code to parser.parse to deal with this
 
 s = [=[
 function f ()
@@ -1814,6 +1867,7 @@ assert(r == e)
 s = [=[
 i = 0
 while (i < 10)
+  print(i)
   i = i + 1
 end
 ]=]
@@ -1823,6 +1877,10 @@ test.lua:3:3: syntax error, expected 'do' after the condition
 
 r = parse(s)
 assert(r == e)
+
+end
+
+if not metalua then
 
 print("> testing more syntax errors...")
 
@@ -1905,6 +1963,9 @@ e = [=[
 test.lua:1:16: syntax error, unexpected token, invalid start of statement
 ]=]
 
+r = parse(s)
+assert(r == e)
+
 s = [=[
 x = -
 y = 2
@@ -1939,6 +2000,7 @@ test.lua:2:3: syntax error, unexpected token, invalid start of statement
 r = parse(s)
 assert(r == e)
 
+-- Recovery: two errors instead of one
 s = [=[
 repeat:
   action()
@@ -1947,6 +2009,7 @@ end
 ]=]
 e = [=[
 test.lua:1:7: syntax error, unexpected token, invalid start of statement
+test.lua:4:1: syntax error, unexpected character(s), expected EOF
 ]=]
 
 r = parse(s)
@@ -2027,6 +2090,7 @@ emd
 ]=]
 e = [=[
 test.lua:3:1: syntax error, unexpected token, invalid start of statement
+test.lua:4:1: syntax error, expected 'end' to close the function body
 ]=]
 
 r = parse(s)
@@ -2064,6 +2128,7 @@ test.lua:3:1: syntax error, expected 'end' to close the if statement
 r = parse(s)
 assert(r == e)
 
+-- Recovery: two errors instead of one
 s = [=[
 if a then
   b()
@@ -2075,6 +2140,7 @@ end
 ]=]
 e = [=[
 test.lua:5:1: syntax error, expected 'end' to close the if statement
+test.lua:7:1: syntax error, unexpected character(s), expected EOF
 ]=]
 
 r = parse(s)
@@ -2199,6 +2265,7 @@ assert(r == e)
 s = [=[
 while not done
   work()
+  work2()
 end
 ]=]
 e = [=[
@@ -2233,22 +2300,39 @@ r = parse(s)
 assert(r == e)
 
 -- ErrUntilRep
+-- Recovery: two errors instead of one
 s = [=[
 repeat play_song()
 ]=]
 e = [=[
 test.lua:2:1: syntax error, expected 'until' at the end of the repeat loop
+test.lua:2:1: syntax error, expected a condition after 'until'
 ]=]
 
 r = parse(s)
 assert(r == e)
+
+-- Recovery: test only in RecoveryChoice
+s = [=[
+repeat play_song() while on_repeat
+]=]
+e = [=[
+test.lua:2:1: syntax error, expected 'do' after the condition
+test.lua:2:1: syntax error, expected 'end' to close the while loop
+test.lua:2:1: syntax error, expected 'until' at the end of the repeat loop
+test.lua:2:1: syntax error, expected a condition after 'until'
+]=]
+
+r = parse(s)
+assert(r == e)
+
 
 -- ErrExprRep
 s = [=[
 repeat film() until end
 ]=]
 e = [=[
-test.lua:1:21: syntax error, expected a conditions after 'until'
+test.lua:1:21: syntax error, expected a condition after 'until'
 ]=]
 
 r = parse(s)
@@ -2328,6 +2412,7 @@ for arr do print(arr[i]) end
 ]=]
 e = [=[
 test.lua:1:9: syntax error, expected '=' or 'in' after the variable(s)
+test.lua:1:9: syntax error, expected one or more expressions after 'in'
 ]=]
 
 r = parse(s)
@@ -2382,7 +2467,7 @@ s = [=[
 local
 ]=]
 e = [=[
-test.lua:2:1: syntax error, expected a function definition or assignment after local
+test.lua:2:1: syntax error, expected a function definition or assignment after 'local'
 ]=]
 
 r = parse(s)
@@ -2392,7 +2477,7 @@ s = [=[
 local; x = 2
 ]=]
 e = [=[
-test.lua:1:6: syntax error, expected a function definition or assignment after local
+test.lua:1:6: syntax error, expected a function definition or assignment after 'local'
 ]=]
 
 r = parse(s)
@@ -2402,7 +2487,7 @@ s = [=[
 local *p = nil
 ]=]
 e = [=[
-test.lua:1:7: syntax error, expected a function definition or assignment after local
+test.lua:1:7: syntax error, expected a function definition or assignment after 'local'
 ]=]
 
 r = parse(s)
@@ -2493,8 +2578,19 @@ r = parse(s)
 assert(r == e)
 
 -- ErrNameFunc1
+-- TODO: it is generating an empty capture before the capture
+-- associated with the recovery pattern
+-- It seems the "nil" capture is generated by "throw",
+-- since the following pattern generates a "nil" after "ponto"
+-- and before the capture associated with the recovery pattern
+-- Cf(V"Id" * ((sym(".") / "ponto") * throw("NameFunc1")  )^0,
+-- Strange... 
+-- Partial solution was to add a condition in "insertIndex"
+
 s = [=[
 function foo.() end
+x = 2
+y = 3
 ]=]
 e = [=[
 test.lua:1:14: syntax error, expected a function name after '.'
@@ -2542,6 +2638,7 @@ end
 ]=]
 e = [=[
 test.lua:2:3: syntax error, expected '(' for the parameter list
+test.lua:3:1: syntax error, expected ')' to close the parameter list
 ]=]
 
 r = parse(s)
@@ -3046,11 +3143,17 @@ test.lua:1:9: syntax error, expected an expression after the additive operator
 r = parse(s)
 assert(r == e)
 
+--TODO: study this example
+-- the error is thrown, the parser backtracks, the same error is thrown, grammar backtracks
+-- and then a different error is thrown
+-- FIXED: reset 'syntaxerr' in the match time capture of FuncCall and VarExpr 
+-- Recovery: two errors instead of one
 s = [=[
 arr[i++]
 ]=]
 e = [=[
 test.lua:1:7: syntax error, expected an expression after the additive operator
+test.lua:1:1: syntax error, unexpected token, invalid start of statement
 ]=]
 
 r = parse(s)
@@ -3197,7 +3300,7 @@ test.lua:1:9: syntax error, expected an expression after '^'
 ]=]
 
 r = parse(s)
--- assert(r == e)
+assert(r == e)
 
 -- ErrExprParen
 s = [=[
@@ -3231,11 +3334,13 @@ test.lua:2:1: syntax error, expected ')' to close the expression
 r = parse(s)
 assert(r == e)
 
+-- Recovery: two errors instead of one
 s = [=[
 w = (0xBV)
 ]=]
 e = [=[
 test.lua:1:9: syntax error, expected ')' to close the expression
+test.lua:1:9: syntax error, unexpected token, invalid start of statement
 ]=]
 
 r = parse(s)
@@ -3272,11 +3377,20 @@ test.lua:1:7: syntax error, expected a field name after '.'
 r = parse(s)
 assert(r == e)
 
+--TODO: error similar to the example 
+--s = [=[
+--arr[i++]
+--]=]
+-- see also "analisar.txt"
+-- FIXED
+-- Recovery: two errors instead of one
 s = [=[
 x.
 ]=]
+
 e = [=[
 test.lua:2:1: syntax error, expected a field name after '.'
+test.lua:1:1: syntax error, unexpected token, invalid start of statement
 ]=]
 
 r = parse(s)
@@ -3314,42 +3428,52 @@ test.lua:2:1: syntax error, expected ']' to close the indexing expression
 r = parse(s)
 assert(r == e)
 
+-- Recovery: two errors instead of one
 s = [=[
 f = t[x,y]
 ]=]
 e = [=[
 test.lua:1:8: syntax error, expected ']' to close the indexing expression
+test.lua:1:10: syntax error, unexpected token, invalid start of statement
 ]=]
 
 r = parse(s)
 assert(r == e)
 
+-- TODO: see example arr[i++]
+-- FIXED
+-- Recovery: two errors instead of one 
 s = [=[
 arr[i--]
 ]=]
 e = [=[
 test.lua:2:1: syntax error, expected ']' to close the indexing expression
+test.lua:1:1: syntax error, unexpected token, invalid start of statement
 ]=]
 
 r = parse(s)
 assert(r == e)
 
 -- ErrNameMeth
+-- Recovery: two errors instead of one 
 s = [=[
 x = obj:
 ]=]
 e = [=[
 test.lua:2:1: syntax error, expected a method name after ':'
+test.lua:2:1: syntax error, expected some arguments for the method call (or '()')
 ]=]
 
 r = parse(s)
 assert(r == e)
 
+-- Recovery: two errors instead of one 
 s = [=[
 x := 0
 ]=]
 e = [=[
 test.lua:1:4: syntax error, expected a method name after ':'
+test.lua:2:1: syntax error, expected some arguments for the method call (or '()')
 ]=]
 
 r = parse(s)
@@ -3431,27 +3555,32 @@ test.lua:2:1: syntax error, expected ')' to close the argument list
 r = parse(s)
 assert(r == e)
 
+-- Recovery: two errors instead of one
 s = [=[
 foo(arg1 arg2)
 ]=]
 e = [=[
 test.lua:1:10: syntax error, expected ')' to close the argument list
+test.lua:1:10: syntax error, unexpected token, invalid start of statement
 ]=]
 
 r = parse(s)
 assert(r == e)
 
 -- ErrCBraceTable
+-- Recovery: two errors instead of one
 s = [=[
 nums = {1, 2, 3]
 ]=]
 e = [=[
 test.lua:1:16: syntax error, expected '}' to close the table constructor
+test.lua:1:16: syntax error, unexpected token, invalid start of statement
 ]=]
 
 r = parse(s)
 assert(r == e)
 
+-- Recovery: two errors instead of one
 s = [=[
 nums = {
   one = 1;
@@ -3462,6 +3591,7 @@ nums = {
 ]=]
 e = [=[
 test.lua:4:3: syntax error, expected '}' to close the table constructor
+test.lua:6:1: syntax error, unexpected token, invalid start of statement
 ]=]
 
 r = parse(s)
@@ -3652,11 +3782,14 @@ r = parse(s)
 assert(r == e)
 
 -- ErrOBraceUEsc
+--FIXED: put an extra condition in buildRecG to not capture anything
+--when this label is thrown
 s = [=[
 print("\u3D")
 ]=]
 e = [=[
 test.lua:1:10: syntax error, expected '{' after '\u'
+test.lua:1:12: syntax error, expected '}' after the code point
 ]=]
 
 r = parse(s)
@@ -3730,29 +3863,109 @@ test.lua:6:1: syntax error, unclosed long string
 r = parse(s)
 assert(r == e)
 
-print("> testing issues...")
-
--- issue #12
-s = [===[
-gl_f_ct = 0
-
-function f()
-    if gl_f_ct <= 0 then
-        gl_f_ct=1
-        return 1000
-    end
-    return -1000
+-- recovery
+-- Recovery: test only in RecoveryChoice
+s = [[
+if cond
+  print(true||false)
+  print(3+)
+  do
+    // hello
+    print(foo:bar)
+    print(8*13))
+    print(13*8
+  end
+  t = {
+    ["zeroth"] = !true,
+    first = 1 +,
+    second = 2;
+    third = (3;
+  }
 end
-
-print( f("1st call") > f("2nd call") )
-gl_f_ct = 0
-print( f("1st call") < f("2nd call") )
-]===]
+]]
 e = [=[
-{ `Set{ { `Id "gl_f_ct" }, { `Number "0" } }, `Set{ { `Id "f" }, { `Function{ {  }, { `If{ `Op{ "le", `Id "gl_f_ct", `Number "0" }, { `Set{ { `Id "gl_f_ct" }, { `Number "1" } }, `Return{ `Number "1000" } } }, `Return{ `Op{ "unm", `Number "1000" } } } } } }, `Call{ `Id "print", `Op{ "gt", `Call{ `Id "f", `String "1st call" }, `Call{ `Id "f", `String "2nd call" } } }, `Set{ { `Id "gl_f_ct" }, { `Number "0" } }, `Call{ `Id "print", `Op{ "lt", `Call{ `Id "f", `String "1st call" }, `Call{ `Id "f", `String "2nd call" } } } }
+test.lua:3:11: syntax error, expected an expression after the additive operator
+test.lua:6:18: syntax error, expected some arguments for the method call (or '()')
+test.lua:9:3: syntax error, expected ')' to close the argument list
+test.lua:2:3: syntax error, expected 'then' after the condition
+test.lua:5:5: syntax error, unexpected token, invalid start of statement
+test.lua:7:16: syntax error, unexpected token, invalid start of statement
+test.lua:11:18: syntax error, expected an expression after '='
+test.lua:12:16: syntax error, expected an expression after the additive operator
+test.lua:14:15: syntax error, expected ')' to close the expression
+]=]
+
+--e = [=[
+--test.lua:2:3: syntax error, expected 'then' after the condition
+--test.lua:2:14: syntax error, expected an expression after '|'
+--test.lua:3:11: syntax error, expected an expression after the additive operator
+--test.lua:5:5: syntax error, unexpected token, invalid start of statement
+--test.lua:6:18: syntax error, expected some arguments for the method call (or '()')
+--test.lua:7:16: syntax error, unexpected token, invalid start of statement
+--test.lua:9:3: syntax error, expected ')' to close the argument list
+--test.lua:11:18: syntax error, expected an expression after '='
+--test.lua:12:16: syntax error, expected an expression after the additive operator
+--test.lua:14:15: syntax error, expected ')' to close the expression
+--]=]
+
+r = parse(s)
+assert(r == e)
+
+s = [[
+print 1
+print 2
+print 3
+print 4
+print 5
+print 6
+print 7
+print 8
+print 9
+print 10
+print 11
+print 12
+print 13
+print 14
+print 15
+print 16
+print 17
+print 18
+print 19
+print 20
+print 21
+print 22
+print 23
+]]
+e = [=[
+test.lua:1:1: syntax error, unexpected token, invalid start of statement
+test.lua:2:1: syntax error, unexpected token, invalid start of statement
+test.lua:3:1: syntax error, unexpected token, invalid start of statement
+test.lua:4:1: syntax error, unexpected token, invalid start of statement
+test.lua:5:1: syntax error, unexpected token, invalid start of statement
+test.lua:6:1: syntax error, unexpected token, invalid start of statement
+test.lua:7:1: syntax error, unexpected token, invalid start of statement
+test.lua:8:1: syntax error, unexpected token, invalid start of statement
+test.lua:9:1: syntax error, unexpected token, invalid start of statement
+test.lua:10:1: syntax error, unexpected token, invalid start of statement
+test.lua:11:1: syntax error, unexpected token, invalid start of statement
+test.lua:12:1: syntax error, unexpected token, invalid start of statement
+test.lua:13:1: syntax error, unexpected token, invalid start of statement
+test.lua:14:1: syntax error, unexpected token, invalid start of statement
+test.lua:15:1: syntax error, unexpected token, invalid start of statement
+test.lua:16:1: syntax error, unexpected token, invalid start of statement
+test.lua:17:1: syntax error, unexpected token, invalid start of statement
+test.lua:18:1: syntax error, unexpected token, invalid start of statement
+test.lua:19:1: syntax error, unexpected token, invalid start of statement
+test.lua:20:1: syntax error, unexpected token, invalid start of statement
+test.lua:21:1: syntax error, unexpected token, invalid start of statement
+test.lua:22:1: syntax error, unexpected token, invalid start of statement
+test.lua:23:1: syntax error, unexpected token, invalid start of statement
 ]=]
 
 r = parse(s)
 assert(r == e)
+
+
+end
 
 print("OK")
