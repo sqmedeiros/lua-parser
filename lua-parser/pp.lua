@@ -43,6 +43,10 @@ local function name2str (name)
   return string.format('"%s"', name)
 end
 
+local function boolean2str (b)
+  return string.format('"%s"', tostring(b))
+end
+
 local function number2str (n)
   return string.format('"%s"', tostring(n))
 end
@@ -117,9 +121,9 @@ function exp2str (exp)
   local tag = exp.tag
   local str = "`" .. tag
   if tag == "Nil" or
-     tag == "Dots" or
-     tag == "True" or
-     tag == "False" then
+     tag == "Dots" then
+  elseif tag == "Boolean" then -- `Boolean{ <boolean> }
+    str = str .. " " .. boolean2str(exp[1])
   elseif tag == "Number" then -- `Number{ <number> }
     str = str .. " " .. number2str(exp[1])
   elseif tag == "String" then -- `String{ <string> }
@@ -150,7 +154,7 @@ function exp2str (exp)
       end
     end
     str = str .. " }"
-  elseif tag == "Invoke" then -- `Invoke{ expr `String{ <string> expr* }
+  elseif tag == "Invoke" then -- `Invoke{ expr `String{ <string> } expr* }
     str = str .. "{ "
     str = str .. exp2str(exp[1]) .. ", "
     str = str .. exp2str(exp[2])
@@ -307,8 +311,8 @@ end
 function pp.dump (t, i)
   if i == nil then i = 0 end
   io.write(string.format("{\n"))
-  io.write(string.format("%s[tag] = %s\n", string.rep(" ", i+2), t.tag))
-  io.write(string.format("%s[pos] = %s\n", string.rep(" ", i+2), t.pos))
+  io.write(string.format("%s[tag] = %s\n", string.rep(" ", i+2), t.tag or "nil"))
+  io.write(string.format("%s[pos] = %s\n", string.rep(" ", i+2), t.pos or "nil"))
   for k,v in ipairs(t) do
     io.write(string.format("%s[%s] = ", string.rep(" ", i+2), tostring(k)))
     if type(v) == "table" then
