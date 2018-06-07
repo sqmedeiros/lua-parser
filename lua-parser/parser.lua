@@ -146,118 +146,183 @@ local dummyForRange = { tag = "Forin", pos = 0, [1] = {}, [2] = dummyEList, [3] 
 -- error message auxiliary functions
 
 local labels = {
-  { "ErrExtra", "unexpected character(s), expected EOF", flw = -any, locflw = -any },
-  { "ErrInvalidStat", "unexpected token, invalid start of statement", sync(P"\n" + ";"), flw = firstStmt, flw2 = ident, locflw = firstStmt },
+  ErrExtra         = { msg = "unexpected character(s), expected EOF",  ast = nil,
+                       rec = nil, flw = -any, locflw = -any },
+  ErrInvalidStat   = { msg = "unexpected token, invalid start of statement", ast = nil,
+                       rec = sync(P"\n" + ";"), flw = firstStmt, flw2 = ident, locflw = firstStmt },
 
-  { "ErrEndIf", "expected 'end' to close the if statement", sync(P"\n" + ";"), flw = firstBlock, locflw = firstBlock }, --TODO: synchronize with "if", "while", "repeat"...
-  { "ErrExprIf", "expected a condition after 'if'", sync(kw2"then" + "\n" + kw2"end"), dummyExpr, flw = flwExp, locflw = kw2"then"  },
-  --{ "ErrThenIf", "expected 'then' after the condition", sync(P"\n" + kw2"end") }, --TODO: synchronize with the start of a statement
-  { "ErrThenIf", "expected 'then' after the condition", sync(idStart + "\n"), flw = firstBlock + kw2'end', locflw = firstBlock + kw2'end'},
-  { "ErrExprEIf", "expected a condition after 'elseif'", sync(kw2"then" + "\n" + kw2"end"), flw = flwExp, locflw = kw2'then' },
-  --{ "ErrThenEIf", "expected 'then' after the condition", sync(P"\n" + kw2"end")},
-  { "ErrThenEIf", "expected 'then' after the condition", sync(idStart + "\n"), flw = firstBlock + kw2'end', locflw = firstBlock + kw2'end' },
+  ErrEndIf         = { msg = "expected 'end' to close the if statement", ast = nil,
+                       rec = sync(P"\n" + ";"),  flw = firstBlock, locflw = firstBlock }, 
+  ErrExprIf        = { msg = "expected a condition after 'if'",  ast = dummyExpr,
+                       rec = sync(kw2"then" + "\n" + kw2"end"), flw = flwExp, locflw = kw2"then"  },
+  ErrThenIf        = { msg = "expected 'then' after the condition", ast = nil,
+                       rec = sync(idStart + "\n"), flw = firstBlock + kw2'end', locflw = firstBlock + kw2'end' },
+  ErrExprEIf       = { msg = "expected a condition after 'elseif'", ast = dummyExpr,
+                       rec = sync(kw2"then" + "\n" + kw2"end"), flw = flwExp, locflw = kw2'then' },
+  ErrThenEIf       = { msg = "expected 'then' after the condition", ast = nil,
+                       rec = sync(idStart + "\n"), flw = firstBlock + kw2'end', locflw = firstBlock + kw2'end' },
 
-  { "ErrEndDo", "expected 'end' to close the do block", sync(P"\n" + ";"), flw = firstBlock, locflw = firstBlock },
-  { "ErrExprWhile", "expected a condition after 'while'", sync(kw2"do" + "\n" + kw2"end"), dummyExpr, flw = flwExp, locflw = kw2'do' }, 
-  { "ErrDoWhile", "expected 'do' after the condition", sync(P"\n" + kw2"end"), flw = firstBlock + kw2'end', locflw = firstBlock + kw2'end' },
-  { "ErrEndWhile", "expected 'end' to close the while loop", sync(P"\n" + ";"), flw = firstBlock, locflw = firstBlock },
-  { "ErrUntilRep", "expected 'until' at the end of the repeat loop", sync(P"\n" + digit + ident + ";"), flw = firstExp, locflw = firstExp },
-  { "ErrExprRep", "expected a condition after 'until'", sync(P"\n"), dummyExpr, flw = flwExp, locflw = flwExp },
+  ErrEndDo         = { msg = "expected 'end' to close the do block", ast = nil,
+                       rec = sync(P"\n" + ";"), flw = firstBlock, locflw = firstBlock },
+  ErrExprWhile     = { msg = "expected a condition after 'while'", ast = dummyExpr,
+                       rec = sync(kw2"do" + "\n" + kw2"end"), flw = flwExp, locflw = kw2'do' }, 
+  ErrDoWhile       = { msg = "expected 'do' after the condition", ast = nil,
+                       rec = sync(P"\n" + kw2"end"), flw = firstBlock + kw2'end', locflw = firstBlock + kw2'end' },
+  ErrEndWhile      = { msg = "expected 'end' to close the while loop", ast = nil,
+                       rec = sync(P"\n" + ";"), flw = firstBlock, locflw = firstBlock },
+  ErrUntilRep      = { msg = "expected 'until' at the end of the repeat loop", ast = nil,
+                       rec = sync(P"\n" + digit + ident + ";"), flw = firstExp, locflw = firstExp },
+  ErrExprRep       = { msg = "expected a condition after 'until'", ast = dummyExpr, 
+                       rec = sync(P"\n"), flw = flwExp, locflw = flwExp },
 
-  { "ErrForRange", "expected a numeric or generic range after 'for'", sync(kw2"end"), dummyForRange, flw = kw2'end', locflw = kw2'end' },  -- TODO: sync(kw2"in" + kw2"do" + "\n") },
-  { "ErrEndFor", "expected 'end' to close the for loop", sync(P"\n" + ";"), flw = firstBlock, locflw = firstBlock },
-  { "ErrExprFor1", "expected a starting expression for the numeric range", sync(kw2"do" + "," + "\n"), dummyNum, flw = flwExp, locflw = P',' },
-  { "ErrCommaFor", "expected ',' to split the start and end of the range", sync(kw2"do" + "," + "\n" + digit), flw = firstExp, locflw = firstExp },
-  { "ErrExprFor2", "expected an ending expression for the numeric range", sync(kw2"do" + "\n"), dummyNum, flw = flwExp, locflw = P',' + kw2'do' },
-  { "ErrExprFor3", "expected a step expression for the numeric range after ','", sync(kw2"do" + "\n"), flw = flwExp, locflw = kw2'do' },
-  { "ErrInFor", "expected '=' or 'in' after the variable(s)",
-                 sync(kw2"in" + kw2"do" + "\n" + ";" + "=", (#(kw2"in") * P(2) + #P"=" * any)^-1, #P";" * ";"), flw = firstExp, locflw = firstExp },
-  { "ErrEListFor", "expected one or more expressions after 'in'", sync(kw2"do" + "\n"), dummyEList, flw = flwExprList, locflw = kw2'do' },
-  { "ErrDoFor", "expected 'do' after the range of the for loop", sync(kw2"end" + kw2"do" + "\n", (#(kw2"do") * P(2))^-1), flw = firstBlock + kw2'end', locflw = firstBlock + kw2'end'},
+  ErrForRange      = { msg = "expected a numeric or generic range after 'for'", ast = dummyForRange, 
+                       rec = sync(kw2"end"), flw = kw2'end', locflw = kw2'end' },  
+  ErrEndFor        = { msg = "expected 'end' to close the for loop", ast = nil,
+                       rec = sync(P"\n" + ";"), flw = firstBlock, locflw = firstBlock },
+  ErrExprFor1      = { msg = "expected a starting expression for the numeric range", ast = dummyNum,
+                       rec = sync(kw2"do" + "," + "\n"), flw = flwExp, locflw = P',' },
+  ErrCommaFor      = { msg = "expected ',' to split the start and end of the range", ast = nil, 
+                       rec = sync(kw2"do" + "," + "\n" + digit), flw = firstExp, locflw = firstExp },
+  ErrExprFor2      = { msg = "expected an ending expression for the numeric range", ast = dummyNum,
+                       rec = sync(kw2"do" + "\n"), flw = flwExp, locflw = P',' + kw2'do' },
+  ErrExprFor3      = { msg = "expected a step expression for the numeric range after ','", ast = nil,
+                       rec = sync(kw2"do" + "\n"), flw = flwExp, locflw = kw2'do' },
+  ErrInFor         = { msg = "expected '=' or 'in' after the variable(s)", ast = nil,
+                       rec = sync(kw2"in" + kw2"do" + "\n" + ";" + "=", (#(kw2"in") * P(2) + #P"=" * any)^-1, #P";" * ";"), flw = firstExp, locflw = firstExp },
+  ErrEListFor      = { msg = "expected one or more expressions after 'in'", ast = dummyEList,  
+                       rec = sync(kw2"do" + "\n"), flw = flwExprList, locflw = kw2'do' },
+  ErrDoFor         = { msg = "expected 'do' after the range of the for loop", ast = nil, 
+                       rec = sync(kw2"end" + kw2"do" + "\n", (#(kw2"do") * P(2))^-1), flw = firstBlock + kw2'end', locflw = firstBlock + kw2'end' },
 
-  { "ErrDefLocal", "expected a function definition or assignment after 'local'", sync(kw2"end" + P"\n" + ";"), flw = firstBlock, locflw = firstBlock },
-  { "ErrNameLFunc", "expected a function name after 'function'", sync(kw2"end" + "("+ "\n"), dummyId, flw = flwName, locflw = P'(' },
-  { "ErrEListLAssign", "expected one or more expressions after '='", sync(P"\n"), dummyEList, flw = flwExprList, locflw = firstBlock },
-  { "ErrEListAssign", "expected one or more expressions after '='", sync(P"\n"), dummyEList, flw = flwExprList, locflw = firstBlock },
+  ErrDefLocal      = { msg = "expected a function definition or assignment after 'local'", ast = nil,
+                       rec = sync(kw2"end" + P"\n" + ";"), flw = firstBlock, locflw = firstBlock },
+  ErrNameLFunc     = { msg = "expected a function name after 'function'", ast = dummyId,  
+                       rec = sync(kw2"end" + "("+ "\n"), flw = flwName, locflw = P'(' },
+  ErrEListLAssign  = { msg = "expected one or more expressions after '='", ast = dummyEList,  
+                       rec = sync(P"\n"), flw = flwExprList, locflw = firstBlock },
+  ErrEListAssign   = { msg = "expected one or more expressions after '='", ast = dummyEList,  
+                       rec = sync(P"\n"), flw = flwExprList, locflw = firstBlock },
 
-  { "ErrFuncName", "expected a function name after 'function'", sync(P"(" + "\n"), dummyId, flw = P"(", locflw = P'(' },
-  { "ErrNameFunc1", "expected a function name after '.'", sync(P"(" + "\n"), dummyStr, flw = flwName, locflw = S'.:(' },
-  { "ErrNameFunc2", "expected a method name after ':'", sync(P"(" + "\n"), dummyStr, flw = flwName, locflw = P'(' },
-	{ "ErrOParenPList", "expected '(' for the parameter list", sync(P"(" + ")" + "\n", (#P"(" * any)^-1 ), flw = P')' + ident, locflw = P')' + ident  },
-  { "ErrCParenPList", "expected ')' to close the parameter list", sync(P")" + "\n" + kw2"end", (#P")" * any)^-1), flw = firstBlock + kw2'end', locflw = firstBlock + kw2'end' },
-  { "ErrEndFunc", "expected 'end' to close the function body", sync(P""), flw = firstBlock, locflw = firstBlock },
-  { "ErrParList", "expected a variable name or '...' after ','", sync(P")" + "\n"), dummyId, flw = P')', locflw = P')' },
+  ErrFuncName      = { msg = "expected a function name after 'function'", ast = dummyId, 
+                       rec = sync(P"(" + "\n"), flw = P"(", locflw = P'(' },
+  ErrNameFunc1     = { msg = "expected a function name after '.'", ast = dummyStr, 
+                       rec = sync(P"(" + "\n"), flw = flwName, locflw = S'.:(' },
+  ErrNameFunc2     = { msg = "expected a method name after ':'", ast = dummyStr, 
+                       rec = sync(P"(" + "\n"), flw = flwName, locflw = P'(' },
+  ErrOParenPList   = { msg = "expected '(' for the parameter list", ast = nil,
+                       rec = sync(P"(" + ")" + "\n", (#P"(" * any)^-1 ), flw = P')' + ident, locflw = P')' + ident  },
+  ErrCParenPList   = { msg = "expected ')' to close the parameter list", ast = nil,
+                       rec = sync(P")" + "\n" + kw2"end", (#P")" * any)^-1), flw = firstBlock + kw2'end', locflw = firstBlock + kw2'end' },
+  ErrEndFunc       = { msg = "expected 'end' to close the function body", ast = nil,
+                       rec = sync(P""), flw = firstBlock, locflw = firstBlock },
+  ErrParList       = { msg = "expected a variable name or '...' after ','", ast = dummyId,
+                       rec = sync(P")" + "\n"), flw = P')', locflw = P')' },
 
-  { "ErrLabel", "expected a label name after '::'", sync(P"::" + "\n"), flw = flwName, locflw = P"::" },
-  { "ErrCloseLabel", "expected '::' after the label", P"", flw = firstBlock, locflw = firstBlock },
-  { "ErrGoto", "expected a label after 'goto'", sync(P"\n" + ";"), flw = flwName, locflw = firstBlock },
-  { "ErrRetList", "expected an expression after ',' in the return statement", sync(P"\n"), dummyExpr, flw = flwExp, locflw = P';' + flwBlock  },
+  ErrLabel         = { msg = "expected a label name after '::'", ast = nil,
+                       rec = sync(P"::" + "\n"), flw = flwName, locflw = P"::" },
+  ErrCloseLabel    = { msg = "expected '::' after the label", ast = nil,
+                       rec = P"", flw = firstBlock, locflw = firstBlock },
+  ErrGoto          = { msg = "expected a label after 'goto'", ast = nil,
+                       rec = sync(P"\n" + ";"), flw = flwName, locflw = firstBlock },
+  ErrRetList       = { msg = "expected an expression after ',' in the return statement", ast = dummyExpr,
+                       rec = sync(P"\n"), flw = flwExp, locflw = P';' + flwBlock  },
 
-  { "ErrVarList", "expected a variable name after ','", sync(P"\n" + "="), dummyId, flw = P"=", locflw = P'='  },
-  { "ErrExprList", "expected an expression after ','", P"", dummyExpr, flw = flwExp, locflw = firstBlock },
+  ErrVarList       = { msg = "expected a variable name after ','", ast = dummyId,
+                       rec = sync(P"\n" + "="), flw = P"=", locflw = P'='  },
+  ErrExprList      = { msg = "expected an expression after ','", ast = dummyExpr,
+                       rec = P"", flw = flwExp, locflw = firstBlock },
 
-  { "ErrOrExpr", "expected an expression after 'or'", psyncExp, dummyNum, flw = flwExp, locflw = flwExp},
-  { "ErrAndExpr", "expected an expression after 'and'", psyncExp, dummyNum, flw = flwExp, locflw = flwExp },
-  { "ErrRelExpr", "expected an expression after the relational operator", psyncExp, dummyNum, flw = flwExp, locflw = flwExp},
-  { "ErrBOrExpr", "expected an expression after '|'", psyncExp, dummyNum, flw = flwExp, locflw = flwExp},
-  { "ErrBXorExpr", "expected an expression after '~'", psyncExp, dummyNum, flw = flwExp, locflw = flwExp },
-  { "ErrBAndExpr", "expected an expression after '&'", psyncExp, dummyNum, flw = flwExp, locflw = flwExp },
-  { "ErrShiftExpr", "expected an expression after the bit shift", psyncExp, dummyNum, flw = flwExp, locflw = flwExp },
-  { "ErrConcatExpr", "expected an expression after '..'", psyncExp, dummyStr, flw = flwExp, locflw = flwExp },
+  ErrOrExpr        = { msg = "expected an expression after 'or'", ast = dummyNum,
+                       rec = psyncExp, flw = flwExp, locflw = flwExp },
+  ErrAndExpr       = { msg = "expected an expression after 'and'", ast = dummyNum,
+                       rec = psyncExp, flw = flwExp, locflw = flwExp },
+  ErrRelExpr       = { msg = "expected an expression after the relational operator", ast = dummyNum,
+                       rec = psyncExp, flw = flwExp, locflw = flwExp },
+  ErrBOrExpr       = { msg = "expected an expression after '|'", ast = dummyNum,
+                       rec = psyncExp, flw = flwExp, locflw = flwExp },
+  ErrBXorExpr      = { msg = "expected an expression after '~'", ast = dummyNum,  
+                       rec = psyncExp, flw = flwExp, locflw = flwExp },
+  ErrBAndExpr      = { msg = "expected an expression after '&'", ast = dummyNum,
+                       rec = psyncExp, flw = flwExp, locflw = flwExp },
+  ErrShiftExpr     = { msg = "expected an expression after the bit shift", ast = dummyNum, 
+                       rec = psyncExp, flw = flwExp, locflw = flwExp },
+  ErrConcatExpr    = { msg = "expected an expression after '..'", ast = dummyStr,
+                       rec = psyncExp, flw = flwExp, locflw = flwExp },
 	--TODO: could sync also with ",", to build a better AST
-  { "ErrAddExpr", "expected an expression after the additive operator", psyncExp, dummyNum, flw = flwExp, locflw = flwExp }, 
-  { "ErrMulExpr", "expected an expression after the multiplicative operator", psyncExp, dummyNum, flw = flwExp, locflw = flwExp },
-  { "ErrUnaryExpr", "expected an expression after the unary operator", psyncExp, dummyNum, flw = flwExp, locflw = flwExp },
-  { "ErrPowExpr", "expected an expression after '^'", psyncExp, dummyNum, flw = flwExp, locflw = flwExp },
+  ErrAddExpr       = { msg = "expected an expression after the additive operator", ast = dummyNum,
+                       rec = psyncExp, flw = flwExp, locflw = flwExp }, 
+  ErrMulExpr       = { msg = "expected an expression after the multiplicative operator", ast = dummyNum,
+                       rec = psyncExp, flw = flwExp, locflw = flwExp },
+  ErrUnaryExpr     = { msg = "expected an expression after the unary operator", ast = dummyNum,
+                       rec = psyncExp, flw = flwExp, locflw = flwExp },
+  ErrPowExpr       = { msg = "expected an expression after '^'", ast = dummyNum,
+                       rec = psyncExp, flw = flwExp, locflw = flwExp },
 
-  { "ErrExprParen", "expected an expression after '('", sync(P")" + "\n"), dummyExpr, flw = flwExp, locflw = P")" },
-  { "ErrCParenExpr", "expected ')' to close the expression", P"", flw = flwExp, locflw = flwExp },
-  { "ErrNameIndex", "expected a field name after '.'", sync(P"\n" + "("), dummyId, flw = flwName, locflw = flwExp + S'.[:(' },
-  { "ErrExprIndex", "expected an expression after '['", psyncExp, dummyId, flw = flwExp, locflw = P']' },
-  { "ErrCBracketIndex", "expected ']' to close the indexing expression", P"", flw = flwExp, locflw = flwExp },
-  { "ErrNameMeth", "expected a method name after ':'", sync(P"\n" + "(" + "{" + "\""), dummyId, flw = flwName, locflw = S([['"{(]]) },
+  ErrExprParen     = { msg = "expected an expression after '('", ast = dummyExpr,
+                       rec = sync(P")" + "\n"), flw = flwExp, locflw = P")" },
+  ErrCParenExpr    = { msg = "expected ')' to close the expression", ast = nil,
+                       rec = P"", flw = flwExp, locflw = flwExp },
+  ErrNameIndex     = { msg = "expected a field name after '.'", ast = dummyId,
+                       rec = sync(P"\n" + "("), flw = flwName, locflw = flwExp + S'.[:(' },
+  ErrExprIndex     = { msg = "expected an expression after '['", ast = dummyId,
+                       rec = psyncExp, flw = flwExp, locflw = P']' },
+  ErrCBracketIndex = { msg = "expected ']' to close the indexing expression",
+                       rec = P"", flw = flwExp, locflw = flwExp },
+  ErrNameMeth      = { msg =  "expected a method name after ':'", ast = dummyId,
+                       rec = sync(P"\n" + "(" + "{" + "\""), flw = flwName, locflw = S([['"{(]]) },
   -- TODO: synchronize with all reserved words?
-  { "ErrMethArgs", "expected some arguments for the method call (or '()')", sync(kw2"do" + "\n" + ";" + ")" + kw2"then"), flw = flwExp, locflw = flwExp },
+  ErrMethArgs      = { msg = "expected some arguments for the method call (or '()')", ast = nil,
+                       rec = sync(kw2"do" + "\n" + ";" + ")" + kw2"then"), flw = flwExp, locflw = flwExp },
 
-  { "ErrArgList", "expected an expression after ',' in the argument list", sync(P"\n" + ")"), dummyExpr, flw = flwExp, locflw = P')' },
-  { "ErrCParenArgs", "expected ')' to close the argument list", P"", flw = flwExp, locflw = flwExp },
+  ErrArgList       = { msg = "expected an expression after ',' in the argument list", ast = dummyExpr,
+                       rec = sync(P"\n" + ")"), flw = flwExp, locflw = P')' },
+  ErrCParenArgs    = { msg = "expected ')' to close the argument list", ast = nil,
+                       rec = P"", flw = flwExp, locflw = flwExp },
 
-  { "ErrCBraceTable", "expected '}' to close the table constructor", P"", flw = flwExp, locflw = flwExp  },
-  { "ErrEqField", "expected '=' after the table key", sync(P"}" + "\n" + "," + digit + idStart + "=", (#P"=" * "=")^-1), flw = firstExp, locflw = firstExp },
-  { "ErrExprField", "expected an expression after '='", sync(P"}" + "\n" + ","), dummyId, flw = flwExp, locflw = S'},;' },
-  { "ErrExprFKey", "expected an expression after '[' for the table key", sync(P"\n" + "]"), dummyId, flw = flwExp, locflw = P']'},
-  { "ErrCBracketFKey", "expected ']' to close the table key", P"", flw = P"=", locflw = P'=' },
+  ErrCBraceTable   = { msg = "expected '}' to close the table constructor", ast = nil,
+                       rec = P"", flw = flwExp, locflw = flwExp  },
+  ErrEqField       = { msg = "expected '=' after the table key", ast = nil,
+                       rec = sync(P"}" + "\n" + "," + digit + idStart + "=", (#P"=" * "=")^-1), flw = firstExp, locflw = firstExp },
+  ErrExprField     = { msg = "expected an expression after '='", ast = dummyId,
+                       rec = sync(P"}" + "\n" + ","), flw = flwExp, locflw = S'},;' },
+  ErrExprFKey      = { msg = "expected an expression after '[' for the table key", ast = dummyId,
+                       rec = sync(P"\n" + "]"), flw = flwExp, locflw = P']'},
+  ErrCBracketFKey  = { msg = "expected ']' to close the table key", ast = nil,
+                       rec = P"", flw = P"=", locflw = P'=' },
 
-  { "ErrDigitHex", "expected one or more hexadecimal digits after '0x'", sync(P"\n" + ")"), flw = flwExp, locflw = flwExp },
-  { "ErrDigitDeci", "expected one or more digits after the decimal point", sync(P"\n" + ")"), flw = flwExp + S"eE", locflw = flwExp + S"eE" },
-  { "ErrDigitExpo", "expected one or more digits for the exponent", sync(P"\n" + ")"), flw = flwExp, locflw = flwExp },
+  ErrDigitHex      = { msg = "expected one or more hexadecimal digits after '0x'", ast = nil,
+                       rec = sync(P"\n" + ")"), flw = flwExp, locflw = flwExp },
+  ErrDigitDeci     = { msg = "expected one or more digits after the decimal point",
+                       rec = sync(P"\n" + ")"), flw = flwExp + S"eE", locflw = flwExp + S"eE" },
+  ErrDigitExpo     = { msg = "expected one or more digits for the exponent",
+                       rec = sync(P"\n" + ")"), flw = flwExp, locflw = flwExp },
 
-  { "ErrQuote", "unclosed string", P"", flw = flwExp, locflw = flwExp },
-  { "ErrHexEsc", "expected exactly two hexadecimal digits after '\\x'", sync(P"\n" + ")" + "\""), "00", flw = P"", locflw = P''}, --followed by .
-  { "ErrOBraceUEsc", "expected '{' after '\\u'", P"", flw = xdigit, locflw = xdigit },
-  { "ErrDigitUEsc", "expected one or more hexadecimal digits for the UTF-8 code point", sync(P"\n" + "}" + "\""), "0", flw = P"}", locflw = P'}' },
-  { "ErrCBraceUEsc", "expected '}' after the code point", P"", flw = P"'" + P'"', locflw = S[['"]] },
-  { "ErrEscSeq", "invalid escape sequence", sync(P"\n" + "\""), "0", flw = P"'" + P'"', locflw = S[['"]] },
-  { "ErrCloseLStr", "unclosed long string", P"", flw = flwExp, locflw = flwExp },
+  ErrQuote         = { msg = "unclosed string", ast = nil,
+                       rec = P"", flw = flwExp, locflw = flwExp },
+  ErrHexEsc        = { msg = "expected exactly two hexadecimal digits after '\\x'", ast = "00",
+                       rec = sync(P"\n" + ")" + "\""), flw = P"", locflw = P''}, --followed by .
+  ErrOBraceUEsc    = { msg = "expected '{' after '\\u'",
+                       rec = P"", flw = xdigit, locflw = xdigit },
+  ErrDigitUEsc     = { msg = "expected one or more hexadecimal digits for the UTF-8 code point", ast =  "0",
+                       rec = sync(P"\n" + "}" + "\""), flw = P"}", locflw = P'}' },
+  ErrCBraceUEsc    = { msg = "expected '}' after the code point", ast = nil,
+                       rec = P"", flw = P"'" + P'"', locflw = S[['"]] },
+  ErrEscSeq        = { msg = "invalid escape sequence", ast = "0", 
+                       rec = sync(P"\n" + "\""), flw = P"'" + P'"', locflw = S[['"]] },
+  ErrCloseLStr     = { msg = "unclosed long string", ast = nil,
+                       rec = P"", flw = flwExp, locflw = flwExp },
 }
 
 local function throw(label)
   label = "Err" .. label
-  for i, labelinfo in ipairs(labels) do
-    if labelinfo[1] == label then
-      return T(label)
-    end
+  if not labels[label] then
+    error("Label not found: " .. label)
   end
-
-  error("Label not found: " .. label)
+  return T(label)
 end
 
-local function expect (patt, label, dummy)
-  local p = patt + throw(label)
-	--if dummy then
-	--	p = p * dummy
-	--end
-	return p
+local function expect (patt, label)
+  return patt + throw(label)
 end
 
 
@@ -579,7 +644,7 @@ local G = { V"Lua",
 
 function recorderror(pos, lab)
 	local line, col = re.calcline(cursubject, pos)
-	table.insert(syntaxerrs, { pos = pos, line = line, col = col, lab = lab, error = labels[lab][2] })
+	table.insert(syntaxerrs, { pos = pos, line = line, col = col, lab = lab, error = labels[lab].msg })
 end
 
 function record (lab)
@@ -607,8 +672,7 @@ local function buildRecG (g, flw)
 	--local skipLine = (#(P"," + ";") * 1)^-1 * (-(P",\n" + "\n" + ";" + "end") * 1)^0 * skip
 	local skipLine = P(1)^0 
 
-	for i, v in ipairs(labels) do
-    print("v[3]", v[1], flw, v[3])
+	for k, v in pairs(labels) do
 		local prec = skipLine
 		if flw == "flw" and v.flw2 then 
 	  	prec = sync(v.flw, nil, v.flw2)
@@ -618,17 +682,15 @@ local function buildRecG (g, flw)
       prec = sync(v.locflw, nil, v.flw2)
 		elseif flw == "locflw" then
       prec = sync(v.locflw)
-    elseif v[3] then
-			print("tem v3", v[1])
-			prec = v[3]
+    elseif v.rec then
+			print("tem v.rec", k)
+			prec = v.rec
 		end
-    --print("here ", v[1])
-		if v[4] then
-			grec[v[1]] = record(i) * prec * Cc(v[4])
+		if v.ast then
+			grec[k] = record(k) * prec * Cc(v.ast)
 		else
-      --print("nao tem v4", v[1])
-      if v[1] == "ErrEListAssign" then print("grecc", v[1]) end
-			grec[v[1]] = record(i) * prec
+      if k == "ErrEListAssign" then print("grecc", k) end
+			grec[k] = record(k) * prec
 		--else
 			--grec = Rec(grec, record(i) * prec * Cc(dummyExpr), i)
     end
