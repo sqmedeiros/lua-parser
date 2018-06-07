@@ -46,7 +46,7 @@ end
 
 assert = function (b)
 	if not b then
-		print("Different recovery for global follow strategy")
+		print("Different recovery for local follow strategy. Label: " .. label)
 	end
 end
 

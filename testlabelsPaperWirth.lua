@@ -27,7 +27,7 @@ end
 
 local function parse (s)
 	writeFile(s)
-  local t,m,ast = parser.parse(s, filename, 'flw')
+  local t,m,ast = parser.parse(s, filename, 'wirth')
 	local r
   if not t then
     r = m
@@ -46,7 +46,7 @@ end
 
 assert = function (b)
 	if not b then
-		print("Different recovery for global follow strategy. Label: " .. label)
+		print("Different recovery for wirth follow strategy. Label: " .. label)
 	end
 end
 

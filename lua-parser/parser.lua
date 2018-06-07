@@ -105,6 +105,8 @@ local firstStmt = kw2'if' + kw2'while' + kw2'do' + kw2'for' + kw2'repeat' +
                             kw2'local' + kw2'function' + kw2'break' + P"::" * ident * "::"  +
                             ident + kw2'goto' + ';'
 
+local wirthKwRule = kw2'do' + kw2'for' + kw2'function' + kw2'if' + kw2'local' + kw2'repeat' + kw2'while'  
+
 local firstBlock = firstStmt + kw2'return'
 
 local flwBlock = -any + kw2'elseif' + kw2'else' + kw2'end' +  kw2'until'
@@ -657,14 +659,12 @@ local function buildRecG (g, flw)
 
 	for k, v in pairs(labels) do
 		local prec = skipLine
-		if flw == "flw" and v.flw2 then 
+		if flw == "flw" then
 	  	prec = sync(v.flw, nil, v.flw2)
-		elseif flw == "flw" then
-      prec = sync(v.flw)
-    elseif flw == "locflw" and v.flw2 then
+    elseif flw == "locflw" then
       prec = sync(v.locflw, nil, v.flw2)
-		elseif flw == "locflw" then
-      prec = sync(v.locflw)
+    elseif flw == 'wirth' then
+	  	prec = sync(v.flw + wirthKwRule, nil, v.flw2)
     elseif v.rec then
 			prec = v.rec
 		end
@@ -686,6 +686,7 @@ local syntaxerror = validator.syntaxerror
 local Grec = buildRecG(G)
 local Gflw = buildRecG(G, "flw")
 local Glocflw = buildRecG(G, "locflw")
+local Gwirth = buildRecG(G, "wirth")
 
 function parser.parse (subject, filename, flw)
   local errorinfo = { subject = subject, filename = filename }
@@ -697,6 +698,8 @@ function parser.parse (subject, filename, flw)
 		g = Gflw
   elseif flw == 'locflw' then
     g = Glocflw
+  elseif flw == 'wirth' then
+    g = Gwirth
 	end
   local ast, label, sfail = lpeg.match(g, subject, nil, errorinfo)
 	--print(ast, label, #syntaxerrs)
