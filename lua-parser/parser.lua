@@ -58,7 +58,7 @@ lpeg.locale(lpeg)
 local P, S, V = lpeg.P, lpeg.S, lpeg.V
 local C, Carg, Cb, Cc = lpeg.C, lpeg.Carg, lpeg.Cb, lpeg.Cc
 local Cf, Cg, Cmt, Cp, Cs, Ct = lpeg.Cf, lpeg.Cg, lpeg.Cmt, lpeg.Cp, lpeg.Cs, lpeg.Ct
-local Rec, T = lpeg.Rec, lpeg.T
+local T = lpeg.T
 
 local alpha, digit, alnum = lpeg.alpha, lpeg.digit, lpeg.alnum
 local xdigit = lpeg.xdigit
@@ -137,9 +137,7 @@ local dummyId = { tag = "Id", pos = 0, [1] = "<Dummy>" }
 local dummyNum = { tag = "Number", pos = 0, [1] = 42 }
 local dummyExpr = dummyStr
 local dummyEList = { tag = "ExpList", pos = 0, [1] = dummyExpr}
-local dummyEList2 = { tag = "ExpList", pos = 44, [1] = dummyNum}
 local dummyBlock = { tag = "Block", pos = 0, } 
-local dummyVarList = { tag = "Block", pos = 0, } 
 local dummyForRange = { tag = "Forin", pos = 0, [1] = {}, [2] = dummyEList, [3] = dummyBlock }
 
 
@@ -401,10 +399,6 @@ local function addDots (params, dots)
 end
 
 local function insertIndex (t, index)
-	--print("insert", t, t.tag, index)
-	if type(index) == "table" then
-		--print(index.tag, index[1])
-	end
 	if not index then return t end
   return { tag = "Index", pos = t.pos, [1] = t, [2] = index }
 end
@@ -657,18 +651,7 @@ local function buildRecG (g, flw)
 		grec[k] = v
 	end
 
-	local Equals   = P"="^0;
-	local Close    = "]" * C(Equals) * "]";
-	local CloseEq  = Cmt(Close * Cb("openEq"), function (s, i, closeEq, openEq) return #openEq == #closeEq end);
-	local Open     = "[" * Cg(Equals, "openEq") * "[" * P"\n"^-1;
-	local LongStr  = Open * C((P(1) - CloseEq)^0) * expect(Close, "CloseLStr") / function (s, eqs) return s end
-
-	local Comment  = P"--" * LongStr / function () return end
-                 + P"--" * (P(1) - P"\n")^0;
-
-	local space = grec["Space"]
-	
-	local skip = space + Comment
+  local skip = grec["Space"] + grec['Comment'] 
 	--local skipLine = (#(P"," + ";") * 1)^-1 * (-(P",\n" + "\n" + ";" + "end") * 1)^0 * skip
 	local skipLine = P(1)^0 
 
@@ -683,16 +666,12 @@ local function buildRecG (g, flw)
 		elseif flw == "locflw" then
       prec = sync(v.locflw)
     elseif v.rec then
-			print("tem v.rec", k)
 			prec = v.rec
 		end
 		if v.ast then
 			grec[k] = record(k) * prec * Cc(v.ast)
 		else
-      if k == "ErrEListAssign" then print("grecc", k) end
 			grec[k] = record(k) * prec
-		--else
-			--grec = Rec(grec, record(i) * prec * Cc(dummyExpr), i)
     end
 	end
 	return grec

@@ -15,7 +15,7 @@ local all = {}
 local function writeFile (s)
 	count = count + 1
 	local name = label .. count
-	local name = path .. "/err" .. name .. ".lua"
+	name = path .. "/err" .. name .. ".lua"
 	local f, e = io.open(name, "w")
 	if not f then print(e) end
 	f:write(s)
