@@ -1,6 +1,7 @@
 #!/usr/bin/env lua
 
 local parser = require "lua-parser.parser"
+local pp = require "lua-parser.pp"
 local os = require 'os'
 local e, r, s
 
@@ -10,13 +11,14 @@ local function parse (s)
 	if not t then
 		print(m)
 	end
-  return t 
+	print(pp.tostring(ast))
+  return ast 
 end
 
 local arg = { ... }
 
 if not arg[1] then
-	print("Usage: lua test2.lua inputFile(s)")
+	print("Usage: lua test3.lua inputFile(s)")
 	return
 end
 

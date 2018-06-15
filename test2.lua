@@ -10,7 +10,7 @@ local function parse (s)
 	if not t then
 		print(m)
 	end
-  return t 
+  return ast 
 end
 
 local function calcAvg (t)
@@ -58,9 +58,9 @@ for i=1, n do
 		s = f:read("*a")
 		local t1 = os.clock()
 		local r = parse(s)
-		if arg[1] ~= 'alltests.lua' then 
+		--if arg[1] ~= 'alltests.lua' then 
 			assert(r ~= nil)
-		end
+		--end
 		local t2 = os.clock()
 		f:close()
 		totalTime = totalTime + (t2 - t1)
