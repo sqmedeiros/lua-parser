@@ -20,9 +20,7 @@ local function writeFile (s)
 	if not f then print(e) end
 	f:write(s)
 	f:close() 
-  if label ~= 'Extra' and not (label == 'InvalidStat' and count == 7) then 
-		all[#all+1] = s
-	end
+	all[#all+1] = s
 end
 
 local function parse (s)

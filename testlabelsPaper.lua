@@ -20,9 +20,7 @@ local function writeFile (s)
 	if not f then print(e) end
 	f:write(s)
 	f:close() 
-  if label ~= 'Extra' and not (label == 'InvalidStat' and count == 7) then 
-		all[#all+1] = s
-	end
+	all[#all+1] = s
 end
 
 local function parse (s)
@@ -1231,6 +1229,8 @@ count = 0
 
 s = [=[
 foo(a or)
+
+x = x + 1
 ]=]
 e = [=[
 test.lua:1:9: syntax error, expected an expression after 'or'
@@ -1613,6 +1613,8 @@ count = 0
 
 s = [=[
 foo(b, a *)
+
+x = x + 1
 ]=]
 e = [=[
 test.lua:1:11: syntax error, expected an expression after the multiplicative operator
@@ -2030,6 +2032,8 @@ count = 0
 
 s = [=[
 foo(a, b, )
+
+x = x + 1
 ]=]
 e = [=[
 test.lua:1:11: syntax error, expected an expression after ',' in the argument list
@@ -2040,6 +2044,8 @@ assert(r == e)
 
 s = [=[
 foo(a, b, ..)
+
+x = x + 1
 ]=]
 e = [=[
 test.lua:1:11: syntax error, expected an expression after ',' in the argument list

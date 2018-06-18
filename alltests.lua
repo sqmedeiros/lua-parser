@@ -1,3 +1,32 @@
+return; print("hello")
+
+print("it is already over"
+
+while foo do if bar then baz() end end end
+
+x = 3
+
+y = + x
+
+local func f()
+  g()
+end
+
+x = y
+
+y = + x
+
+function qux()
+  if false then
+    -- do
+    return 0
+    end
+  end
+  return 1
+end
+print(qux())
+y = + x
+
 find_solution() ? print("yes") : print("no")
 
 x = x + y
@@ -31,6 +60,15 @@ x = + y
 while foo() do
   // not a lua comment
   bar()
+end
+
+x = x + y
+
+x = + y
+
+repeat:
+  action()
+until condition
 end
 
 x = x + y
