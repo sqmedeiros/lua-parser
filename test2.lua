@@ -5,12 +5,12 @@ local os = require 'os'
 local e, r, s
 
 local function parse (s)
-  local t,m,ast
   local t,m,ast = parser.parse(s,filename)
 	if not t then
 		print(m)
+    t = ast
 	end
-  return ast 
+  return t
 end
 
 local function calcAvg (t)
